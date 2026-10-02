@@ -1,0 +1,40 @@
+name: harden-runner-anomaly-demo
+
+# Save as: .github/workflows/harden-runner-anomaly-demo.yml in a PUBLIC repo.
+#
+# Phase 1 (build a baseline): run with anomaly = false, many times. Every run makes
+#   the same two outbound calls, so those become "normal" for this workflow.
+# Phase 2 (trigger the detection): once the baseline is stable, run once with
+#   anomaly = true. That run also calls a domain this workflow has never contacted.
+
+on:
+  workflow_dispatch:
+    inputs:
+      anomaly:
+        description: "Also call a domain that is not in the baseline"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "*/15 * * * *"   # optional: helps accumulate baseline runs unattended
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Normal calls (these form the baseline)
+        run: |
+          curl -fsS --max-time 15 https://api.github.com/zen
+          curl -fsS --max-time 15 -o /dev/null https://example.com/
+
+      - name: New destination (only when anomaly = true)
+        if: ${{ inputs.anomaly == true }}
+        run: |
+          # Benign, well-known domain this workflow has never contacted before.
+          curl -fsS --max-time 15 -o /dev/null https://www.wikipedia.org/
