@@ -1,0 +1,50 @@
+name: harden-runner-global-block-simple
+
+# Save as: .github/workflows/harden-runner-global-block-simple.yml
+# Run from the Actions tab (workflow_dispatch). Throwaway public repo, no secrets.
+#
+# Harden-Runner runs in AUDIT mode. Entries on the Global Block List should still be
+# blocked. Each check below only opens a TCP connection and sends no data.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  global-block-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Try Global Block List endpoints
+        shell: bash
+        run: |
+          check() {
+            local host="$1" port="$2" label="$3"
+            if timeout 8 bash -c "exec 3<>/dev/tcp/${host}/${port}" 2>/dev/null; then
+              echo "REACHED  ${host}:${port}  (${label})"
+            else
+              echo "FAILED   ${host}:${port}  (${label})"
+            fi
+          }
+
+          echo "== Control: should be REACHED =="
+          check api.github.com 443 "control"
+
+          echo "== Global Block List test domain (never resolves anywhere, so FAILED either way) =="
+          check evil.invalid 443 "GLOBAL_BLOCK_TEST_DOMAIN"
+
+          echo "== Global Block List domains (real, normally reachable sites) =="
+          check check.torproject.org 443 "COMPROMISED_JSCRAMBLER_C2_DOMAIN"
+          check archive.torproject.org 443 "COMPROMISED_JSCRAMBLER_C2_DOMAIN"
+          check relay.damus.io 443 "COMPROMISED_ASYNCAPI_GENERATOR_MIASMA_RAT_C2"
+
+          echo "== Global Block List IPs =="
+          check 37.27.122.124 443 "COMPROMISED_JSCRAMBLER_C2_IP"
+          check 142.11.206.73 443 "COMPROMISED_AXIOS_C2_IP"
+
+          echo "Done. Compare these results with the Harden-Runner insights for this run."
