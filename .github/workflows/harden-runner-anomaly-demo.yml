@@ -37,4 +37,4 @@ jobs:
         if: ${{ inputs.anomaly == true }}
         run: |
           # Benign, well-known domain this workflow has never contacted before.
-          curl -fsS --max-time 15 -o /dev/null https://www.wikipedia.org/
+          curl -fsS --max-time 15 -o /dev/null https://swapi.info/api/films
